@@ -1,0 +1,15 @@
+- [x] Create the models,controller and routes for user (auth- login and register)
+- [x] create avatar (add profile picture)
+- [x] follow and unfollow features
+- [x] send,decline or accept friend request
+- [x] Get profile of the user and access profile of other users
+- [x] socket implementation
+- [x] post operation
+- [x] comment on post
+- [x] reaction on post
+- [ ] jest
+
+- [x] create frontend, router ,persist, redux toolkit
+- [x] auth,profile
+- [x] implement socket
+- [ ] reaction, comment and replies
