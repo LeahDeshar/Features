@@ -1,82 +1,82 @@
-// import express, { Request, Response } from "express";
-// import dotenv from "dotenv";
-// import cloudinary from "cloudinary";
-// import cors from "cors";
-// import morgan from "morgan";
-// import connectDB from "./db/config";
-// import router from "./routes/user";
-
-// const app = express();
-// dotenv.config();
-// app.use(morgan("dev"));
-// app.use(express.json());
-// cloudinary.v2.config({
-//   cloud_name: process.env.CLOUDINARY_NAME,
-//   api_key: process.env.CLOUDINARY_API_KEY,
-//   api_secret: process.env.CLOUDINARY_SECRET,
-// });
-// connectDB();
-
-// app.get("/", (req: Request, res: Response) => {
-//   res.send("Hello World with TypeScript!");
-// });
-
-// app.use("/api/v1/user", router);
-
-// const PORT = process.env.PORT || 8081;
-// app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import cloudinary from "cloudinary";
 import cors from "cors";
 import morgan from "morgan";
+import cookieParser from "cookie-parser";
 import connectDB from "./db/config";
-// import router from "./routes/user";
 import { Server } from "socket.io";
 import http from "http";
 import setupRoutes from "./routes/user";
 import setupPostRoutes from "./routes/posts";
+import setupMessageRoutes from "./routes/message";
 import setupCommentRoutes from "./routes/comment";
 import setupReactionRoutes from "./routes/reaction";
 
-const app = express();
+// Initialize environment variables
 dotenv.config();
-app.use(cors());
+
+// Create Express app
+const app = express();
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(morgan("dev"));
 app.use(express.json());
+app.use(cookieParser());
 
+// Configure Cloudinary
 cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_SECRET,
+  cloud_name: process.env.CLOUDINARY_NAME || "",
+  api_key: process.env.CLOUDINARY_API_KEY || "",
+  api_secret: process.env.CLOUDINARY_SECRET || "",
 });
 
+// Connect to the database
 connectDB();
 
+// Define a simple health check route
 app.get("/", (req: Request, res: Response) => {
   res.send("Hello World with TypeScript!");
 });
 
-// app.use("/api/v1/user", router);
+// Initialize the HTTP server and Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
+    origin: ["http://localhost:5173"],
   },
 });
 
+// Middleware to set up routes
 app.use("/api/v1/user", setupRoutes(io));
+app.use("/api/v1/messages", setupMessageRoutes(io));
 app.use("/api/v1/post", setupPostRoutes(io));
 app.use("/api/v1/comments", setupCommentRoutes(io));
 app.use("/api/v1/reaction", setupReactionRoutes(io));
 
+// Map to store connected users and their socket IDs
 export const connectedUsers = new Map<string, string>();
 
+const userSocketMap: Record<string, string> = {};
+
+// Utility function to get a user's socket ID
+export function getReceiverSocketId(userId: string): string | undefined {
+  return userSocketMap[userId];
+}
+
+// Handle Socket.IO events
 io.on("connection", (socket) => {
-  console.log(`New user connected: ${socket.id}`);
+  console.log("A user connected", socket.id);
+
+  const userId = socket.handshake.query.userId as string | undefined;
+  if (userId) userSocketMap[userId] = socket.id;
+
+  // Emit the list of online users to all connected clients
+  io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   socket.on("register", (userId: string) => {
     connectedUsers.set(userId, socket.id);
@@ -84,15 +84,30 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    connectedUsers.forEach((socketId, userId) => {
+    console.log("A user disconnected", socket.id);
+
+    // Remove the user's socket ID from `userSocketMap`
+    for (const [key, value] of Object.entries(userSocketMap)) {
+      if (value === socket.id) {
+        delete userSocketMap[key];
+        break;
+      }
+    }
+
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+    // Remove the user from `connectedUsers`
+    for (const [userId, socketId] of connectedUsers.entries()) {
       if (socketId === socket.id) {
         connectedUsers.delete(userId);
         console.log(`User disconnected: ${userId}`);
+        break;
       }
-    });
+    }
   });
 });
 
+// Start the server
 const PORT = process.env.PORT || 8081;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

@@ -2,7 +2,7 @@
 - [x] create avatar (add profile picture)
 - [x] follow and unfollow features
 - [x] send,decline or accept friend request
-- [x] Get profile of the user and access profile of other users
+- [ ] Get profile of the user and access profile of other users
 - [x] socket implementation
 - [x] post operation
 - [x] comment on post
@@ -11,5 +11,4 @@
 
 - [x] create frontend, router ,persist, redux toolkit
 - [x] auth,profile
-- [x] implement socket
-- [ ] reaction, comment and replies
+- [ ] implement socket
